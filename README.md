@@ -92,21 +92,12 @@ For a player with a tag, these messages are blocked and sent again on the next f
 recipients, with the same message name and parameters (so the dead / team / location prefixes and
 the language of each client stay right); only the name parameter becomes `[Tag] Name`.
 
-With CCC loaded (`ccc` library), the plugin does not touch chat at all, and the chat tag category
-shows "Disabled on this server". The reasons, from the CCC source (8.1.x):
-
-- CCC already blocks every chat `SayText2` and sends its own line from `player_say`, with
-  `USERMSG_BLOCKHOOKS`. A second plugin rebuilding chat lines would print each line twice, and
-  CCC's own line cannot be hooked.
-- CCC only shows a tag for players with the Generic or Custom1 admin flag, so `CCC_SetTag` cannot
-  show a rank tag to regular players.
-- `CCC_SetTag` only changes the tag in memory, but the next tag or color change of the player saves
-  every current value to the CCC database: a rank tag prepended to a VIP tag would end up saved as
-  the VIP tag.
-
-Showing rank tags next to CCC tags needs a small CCC addition, for example a forward called while
-CCC builds the sender name, letting another plugin add a prefix for any player. This plugin does
-not depend on it.
+With CCC loaded (`ccc` library), the plugin never touches the chat user messages: CCC already blocks
+every chat `SayText2` and sends its own line (with `USERMSG_BLOCKHOOKS`), so rebuilding lines too would
+print each one twice. Instead, CCC 8.2.0 and newer call the `CCC_OnSenderPrefix` forward while they build
+the sender name of a chat line, for every author (CCC flags or not), and the plugin returns the tag there:
+`[Tag]` comes before the name and before the player's own CCC tag (VIP tags...), which stays untouched and
+is never saved with the rank tag. With an older CCC the forward is never called and no rank tag is shown.
 
 ## Requirements
 

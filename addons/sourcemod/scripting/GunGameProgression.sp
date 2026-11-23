@@ -209,7 +209,7 @@ public void OnPluginStart()
 	g_cvXPParticipation   = CreateConVar("sm_ggp_xp_participation", "20", "XP at the end of the match for players on a team who played long enough.", _, true, 0.0);
 	g_cvParticipationTime = CreateConVar("sm_ggp_participation_time", "180", "Seconds on T or CT during the match needed for the participation XP.", _, true, 0.0);
 	g_cvVIPMultiplier     = CreateConVar("sm_ggp_vip_multiplier", "1.25", "XP multiplier for VIP players (VIP-Core), 1.0 = none.", _, true, 1.0, true, 5.0);
-	g_cvChatTags          = CreateConVar("sm_ggp_chat_tags", "1", "Show the chosen tag before the name in chat (only without CustomChatColors, see README).", _, true, 0.0, true, 1.0);
+	g_cvChatTags          = CreateConVar("sm_ggp_chat_tags", "1", "Show the chosen tag before the name in chat (with CustomChatColors: needs CCC 8.2.0 or newer, see README).", _, true, 0.0, true, 1.0);
 	g_cvTrails            = CreateConVar("sm_ggp_trails", "1", "Enable player trails.", _, true, 0.0, true, 1.0);
 	g_cvHEColors          = CreateConVar("sm_ggp_he_colors", "1", "Enable HE grenade colors.", _, true, 0.0, true, 1.0);
 	g_cvKillFx            = CreateConVar("sm_ggp_kill_effects", "1", "Enable kill effects.", _, true, 0.0, true, 1.0);
@@ -1233,6 +1233,21 @@ void GetEquippedName(int client, int cat, char[] buffer, int maxlen)
 // Chat tags
 // ---------------------------------------------------------------------------------------------
 
+// With CustomChatColors 8.2.0 or newer, CCC asks for a prefix while it builds the sender name of
+// every chat line (any author, CCC flags or not): the tag goes there, before the CCC tag.
+public void CCC_OnSenderPrefix(int client, char[] prefix, int maxlen)
+{
+	if (!g_cvChatTags.BoolValue || client < 1 || client > MaxClients || IsFakeClient(client))
+		return;
+
+	char tag[TAG_TEXT_SIZE], hex[8];
+	if (!GetChatTag(client, tag, sizeof(tag), hex, sizeof(hex)))
+		return;
+
+	// Raw color byte: CCC colors the rest of the line itself
+	FormatEx(prefix, maxlen, "\x07%s[%s] ", hex, tag);
+}
+
 // CS:S sends one SayText2 per recipient while the say command runs. Without CustomChatColors,
 // the messages of players with a tag are blocked here and sent again on the next frame with the
 // same recipients, message name and parameters, only the name parameter gets the tag. CustomChatColors
@@ -1763,7 +1778,7 @@ void ShowMainMenu(int client)
 	StrCat(title, sizeof(title), line);
 
 	Menu menu = new Menu(MenuHandler_Main);
-	menu.SetTitle(title);
+	menu.SetTitle("%s", title);
 
 	char info[8], display[128], equipped[64];
 	for (int i = 0; i < Cat_Count; i++)
@@ -1812,7 +1827,7 @@ bool IsCategoryEnabled(int cat)
 {
 	switch (cat)
 	{
-		case Cat_Tags:        return g_cvChatTags.BoolValue && !g_bCCC;
+		case Cat_Tags:        return g_cvChatTags.BoolValue;
 		case Cat_Trails:      return g_cvTrails.BoolValue;
 		case Cat_HEColors:    return g_cvHEColors.BoolValue;
 		case Cat_KillEffects: return g_cvKillFx.BoolValue;
@@ -1853,7 +1868,7 @@ void ShowCategoryMenu(int client, int cat, int firstItem)
 	FormatEx(title, sizeof(title), "%T\n%T", g_sCatPhrases[cat], client, "Equipped", client, equipped);
 	if (!IsCategoryEnabled(cat))
 		Format(title, sizeof(title), "%s\n%T", title, "Feature Disabled", client);
-	menu.SetTitle(title);
+	menu.SetTitle("%s", title);
 
 	char name[64];
 	if (cat == Cat_Tags)
